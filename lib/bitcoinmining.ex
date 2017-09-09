@@ -1,7 +1,6 @@
 defmodule BCM.Supervisor do
 
-  @default_server_port Application.get_env :project, :port, 6666
-  @local_host Application.get_env :project, :ip, {127,0,0,1}
+  @default_server_port Application.get_env :project, :port, 3333
 
   def launch_server do
     IO.puts @default_server_port
@@ -55,14 +54,9 @@ defmodule BCM.Supervisor do
   def loop_server(server_worker_pids) do
     receive do
       {:EXIT, pid, _} = msg->
-        #IO.puts "Parent got message: #{inspect msg}"
-
         {prefix_number, server_worker_pids} = pop_in server_worker_pids[pid]
         new_pid = run_server_worker(prefix_number)
-
         server_worker_pids = put_in server_worker_pids[new_pid], prefix_number
-
-        #IO.puts "Restart children #{inspect pid}(prefix_number #{prefix_number}) with new pid #{inspect new_pid}"
         loop_server(server_worker_pids)
     end
   end
@@ -79,33 +73,29 @@ end
 
 defmodule Child do
 
-  @default_server_port Application.get_env :project, :port, 6666
+  @default_server_port Application.get_env :project, :port, 3333
   @local_host Application.get_env :project, :ip, {127,0,0,1}
+  @default_prefix_number Application.get_env :project, :prefix_number, 4
 
-  defp hash_match(number) do
+  defp hash_match(number, ip_address) do
     prefix_zeros = String.duplicate("0", number)
     random_string = :crypto.strong_rand_bytes(10) |> Base.encode64 |> binary_part(0, 10)
     prefix = "13137866,"
     hash_code = :crypto.hash(:sha256, prefix <> random_string) |> Base.encode16
     if String.equivalent?(String.slice(hash_code, 0..(number-1)), prefix_zeros) do
-      prefix <> random_string <> " " <> hash_code
+      result = prefix <> random_string <> "  --> " <> hash_code
+      send_data(result, {ip_address, @default_server_port})
     else
-      "AAAA"
+      hash_match(number, ip_address)
     end
   end
 
   def init(prefix_number) do
-    result = hash_match(prefix_number)
-    if String.equivalent?(result, "AAAA") == false do
-      send_data("Pan He "<>result, {@local_host, @default_server_port})
-    end
+    hash_match(prefix_number, @local_host)
   end
 
   def init_for_remote(ip_address) do
-    result = hash_match(4)
-    if String.equivalent?(result, "AAAA") == false do
-      send_data("Xiaohui Huang "<>result, {ip_address, @default_server_port})
-    end
+    hash_match(@default_prefix_number, ip_address)
   end
 
   def send_data(data, to) do
@@ -136,10 +126,10 @@ defmodule BCM do
   def main(args) do
     str = args |> parse_args
     cond do
-        is_ipv4?(str) == true -> BCM.Supervisor.init_client([str, str])
+        is_ipv4?(str) == true -> BCM.Supervisor.init_client([str, str, str, str, str, str, str, str])
         str |> String.to_integer > 0 ->
           prefix_number = str |> String.to_integer
-          BCM.Supervisor.init_server([prefix_number, prefix_number])
+          BCM.Supervisor.init_server([prefix_number, prefix_number, prefix_number, prefix_number, prefix_number, prefix_number, prefix_number, prefix_number])
     end
   end
 end
